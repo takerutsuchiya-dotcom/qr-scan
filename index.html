@@ -5,26 +5,24 @@
   <title>QR入出庫管理</title>
 </head>
 <body>
-  <h2>QR入出庫管理</h2>
-  <video id="preview" style="width: 300px; border: 1px solid #ccc;"></video>
-  <form id="stockForm">
-    <label>ID: <input type="text" id="id" readonly></label><br>
-    <label>品名: <input type="text" id="name" readonly></label><br>
-    <label>日付: <input type="text" id="date" readonly></label><br>
-    <label>入庫数: <input type="number" id="inQty" value="0"></label><br>
-    <label>出庫数: <input type="number" id="outQty" value="0"></label><br>
-    <button type="submit">送信</button>
-  </form>
+  <h2>QR入出庫管理（Android対応）</h2>
+
+  <video id="preview" style="width: 300px; border: 1px solid #ccc;"></video><br>
+
+  <label>入庫数: <input type="number" id="inQty" value="0"></label><br>
+  <label>出庫数: <input type="number" id="outQty" value="0"></label><br>
+  <button id="sendBtn">送信</button>
 
   <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
   <script>
-    const GAS_URL = "https://script.google.com/macros/s/https://script.google.com/macros/s/AKfycbwrVdud90R3rgxt5SIP0Zs4qgxqke0LWCHQuoY8WoRVvGUvec3WtpBqhtw1SR67JDMX/exec";
-
+    const GAS_URL = "https://script.google.com/macros/s/【ここにデプロイURL】/exec";
     const video = document.getElementById('preview');
-    const form = document.getElementById('stockForm');
-    const today = new Date();
-    document.getElementById('date').value = today.toISOString().slice(0, 10);
+    let currentID = "";
 
+    // 日付
+    const today = new Date().toISOString().slice(0, 10);
+
+    // カメラ起動
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
       .then(stream => {
         video.srcObject = stream;
@@ -35,6 +33,7 @@
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
 
+    // QR読み取りループ
     video.addEventListener('play', () => {
       const loop = () => {
         if (video.readyState === video.HAVE_ENOUGH_DATA) {
@@ -44,20 +43,7 @@
           const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
           const code = jsQR(imageData.data, canvas.width, canvas.height);
           if (code) {
-            const qrData = code.data.trim(); // QRの中身
-            document.getElementById('id').value = qrData;
-
-            // 品名取得
-            fetch(`${GAS_URL}?mode=getName&id=${encodeURIComponent(qrData)}`)
-              .then(res => res.json())
-              .then(data => {
-                if (data.name) {
-                  document.getElementById('name').value = data.name;
-                } else {
-                  document.getElementById('name').value = "不明";
-                }
-              })
-              .catch(() => document.getElementById('name').value = "取得エラー");
+            currentID = code.data.trim();
           }
         }
         requestAnimationFrame(loop);
@@ -65,24 +51,31 @@
       loop();
     });
 
-    form.addEventListener('submit', e => {
-      e.preventDefault();
+    // 送信ボタン
+    document.getElementById('sendBtn').addEventListener('click', () => {
+      if (!currentID) return alert("QRを読み取ってください");
+
       const params = new URLSearchParams({
-        mode: "addRecord",
-        id: document.getElementById('id').value,
-        name: document.getElementById('name').value,
-        date: document.getElementById('date').value,
+        mode: 'submit',
+        id: currentID,
+        date: today,
         inQty: document.getElementById('inQty').value,
         outQty: document.getElementById('outQty').value
       });
+
       fetch(`${GAS_URL}?${params.toString()}`)
-        .then(res => res.text())
-        .then(text => {
-          alert(text);
-          document.getElementById('inQty').value = 0;
-          document.getElementById('outQty').value = 0;
+        .then(res => res.json())
+        .then(data => {
+          if (data.result === "success") {
+            alert("スプレッドシートに反映しました！");
+            document.getElementById('inQty').value = 0;
+            document.getElementById('outQty').value = 0;
+            currentID = "";
+          } else {
+            alert("送信に失敗: " + data.message);
+          }
         })
-        .catch(err => alert("通信エラー: " + err));
+        .catch(err => alert("送信エラー: " + err));
     });
   </script>
 </body>
