@@ -2,15 +2,27 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>QR入出庫登録</title>
+  <title>QR入出庫登録(Android専用)</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 10px; }
+    video { width: 100%; max-width: 400px; border: 1px solid #ccc; }
+    form { margin-top: 10px; }
+    input, button { padding: 5px; margin: 5px; font-size: 16px; }
+  </style>
 </head>
 <body>
   <h1>QR入出庫登録</h1>
-  <video id="preview" style="width: 300px;"></video>
+  <video id="preview" playsinline></video>
   <form id="stockForm">
-    <label>ID: <input type="text" id="id" readonly></label><br>
-    <label>入庫数: <input type="number" id="inQty" value="0"></label><br>
-    <label>出庫数: <input type="number" id="outQty" value="0"></label><br>
+    <label>ID:<br>
+      <input type="text" id="id" readonly>
+    </label><br>
+    <label>入庫数:<br>
+      <input type="number" id="inQty" value="0">
+    </label><br>
+    <label>出庫数:<br>
+      <input type="number" id="outQty" value="0">
+    </label><br>
     <button type="submit">送信</button>
   </form>
 
@@ -18,24 +30,99 @@
   <script>
     const video = document.getElementById('preview');
     const form = document.getElementById('stockForm');
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbyTVsJRcNgNMm6RgGQhh6HPaH4IOLSCLJkhEQHSpr8cJm2HzoleCc5jhlYqySm8sWtZ/exec"; // 自分のURL
+    const GAS_URL = "<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>QR入出庫登録(Android専用)</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 10px; }
+    video { width: 100%; max-width: 400px; border: 1px solid #ccc; }
+    form { margin-top: 10px; }
+    input, button { padding: 5px; margin: 5px; font-size: 16px; }
+  </style>
+</head>
+<body>
+  <h1>QR入出庫登録</h1>
+  <video id="preview" playsinline></video>
+  <form id="stockForm">
+    <label>ID:<br>
+      <input type="text" id="id" readonly>
+    </label><br>
+    <label>入庫数:<br>
+      <input type="number" id="inQty" value="0">
+    </label><br>
+    <label>出庫数:<br>
+      <input type="number" id="outQty" value="0">
+    </label><br>
+    <button type="submit">送信</button>
+  </form>
 
+  <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+  <script>
+    const video = document.getElementById('preview');
+    const form = document.getElementById('stockForm');
+    const GAS_URL = "<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>QR入出庫登録(Android専用)</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 10px; }
+    video { width: 100%; max-width: 400px; border: 1px solid #ccc; }
+    form { margin-top: 10px; }
+    input, button { padding: 5px; margin: 5px; font-size: 16px; }
+  </style>
+</head>
+<body>
+  <h1>QR入出庫登録</h1>
+  <video id="preview" playsinline></video>
+  <form id="stockForm">
+    <label>ID:<br>
+      <input type="text" id="id" readonly>
+    </label><br>
+    <label>入庫数:<br>
+      <input type="number" id="inQty" value="0">
+    </label><br>
+    <label>出庫数:<br>
+      <input type="number" id="outQty" value="0">
+    </label><br>
+    <button type="submit">送信</button>
+  </form>
+
+  <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+  <script>
+    const video = document.getElementById('preview');
+    const form = document.getElementById('stockForm');
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbyTVsJRcNgNMm6RgGQhh6HPaH4IOLSCLJkhEQHSpr8cJm2HzoleCc5jhlYqySm8sWtZ/exec"; // 自分のWebアプリURL
+    let scanning = true;
+
+    // カメラ起動
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-      .then(stream => video.srcObject = stream);
+      .then(stream => {
+        video.srcObject = stream;
+        video.play();
+      })
+      .catch(err => {
+        alert("カメラを起動できません: " + err);
+      });
 
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
 
+    // QRコード読み取りループ
     video.addEventListener('play', () => {
       const loop = () => {
-        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+        if (scanning && video.readyState === video.HAVE_ENOUGH_DATA) {
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
           context.drawImage(video, 0, 0, canvas.width, canvas.height);
           const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
           const code = jsQR(imageData.data, canvas.width, canvas.height);
           if (code) {
-            document.getElementById('id').value = code.data; // QRコードにIDのみ
+            document.getElementById('id').value = code.data;
+            scanning = false; // 一時停止
+            alert("QRコード読み取り成功: " + code.data);
           }
         }
         requestAnimationFrame(loop);
@@ -43,22 +130,162 @@
       loop();
     });
 
+    // フォーム送信
     form.addEventListener('submit', e => {
       e.preventDefault();
       const id = document.getElementById('id').value;
       const inQty = document.getElementById('inQty').value;
       const outQty = document.getElementById('outQty').value;
 
-      fetch(`${GAS_URL}?id=${encodeURIComponent(id)}&inQty=${inQty}&outQty=${outQty}`)
-        .then(res => res.text())
-        .then(text => {
-          if (text.includes("OK")) {
-            alert("登録しました");
-          } else {
-            alert("エラー: " + text);
+      if (!id) {
+        alert("QRコードが読み取られていません");
+        return;
+      }
+
+      fetch(`${GAS_URL}?id=${encodeURIComponent(id)}&inQty=${inQty}&outQty=${outQty}`, {
+        method: "GET",
+        mode: "cors"
+      })
+      .then(res => res.text())
+      .then(text => {
+        if (text.includes("OK")) {
+          alert("登録しました");
+          scanning = true; // 次の読み取り再開
+        } else {
+          alert("エラー: " + text);
+        }
+      })
+      .catch(err => alert("通信エラー: " + err));
+    });
+  </script>
+</body>
+</html>"; // 自分のWebアプリURL
+    let scanning = true;
+
+    // カメラ起動
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+      .then(stream => {
+        video.srcObject = stream;
+        video.play();
+      })
+      .catch(err => {
+        alert("カメラを起動できません: " + err);
+      });
+
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+
+    // QRコード読み取りループ
+    video.addEventListener('play', () => {
+      const loop = () => {
+        if (scanning && video.readyState === video.HAVE_ENOUGH_DATA) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, canvas.width, canvas.height);
+          if (code) {
+            document.getElementById('id').value = code.data;
+            scanning = false; // 一時停止
+            alert("QRコード読み取り成功: " + code.data);
           }
-        })
-        .catch(err => alert("通信エラー: " + err));
+        }
+        requestAnimationFrame(loop);
+      };
+      loop();
+    });
+
+    // フォーム送信
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const id = document.getElementById('id').value;
+      const inQty = document.getElementById('inQty').value;
+      const outQty = document.getElementById('outQty').value;
+
+      if (!id) {
+        alert("QRコードが読み取られていません");
+        return;
+      }
+
+      fetch(`${GAS_URL}?id=${encodeURIComponent(id)}&inQty=${inQty}&outQty=${outQty}`, {
+        method: "GET",
+        mode: "cors"
+      })
+      .then(res => res.text())
+      .then(text => {
+        if (text.includes("OK")) {
+          alert("登録しました");
+          scanning = true; // 次の読み取り再開
+        } else {
+          alert("エラー: " + text);
+        }
+      })
+      .catch(err => alert("通信エラー: " + err));
+    });
+  </script>
+</body>
+</html>; // 自分のWebアプリURL
+    let scanning = true;
+
+    // カメラ起動
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+      .then(stream => {
+        video.srcObject = stream;
+        video.play();
+      })
+      .catch(err => {
+        alert("カメラを起動できません: " + err);
+      });
+
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+
+    // QRコード読み取りループ
+    video.addEventListener('play', () => {
+      const loop = () => {
+        if (scanning && video.readyState === video.HAVE_ENOUGH_DATA) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, canvas.width, canvas.height);
+          if (code) {
+            document.getElementById('id').value = code.data;
+            scanning = false; // 一時停止
+            alert("QRコード読み取り成功: " + code.data);
+          }
+        }
+        requestAnimationFrame(loop);
+      };
+      loop();
+    });
+
+    // フォーム送信
+    form.addEventListener('submit', e => {
+      e.preventDefault();
+      const id = document.getElementById('id').value;
+      const inQty = document.getElementById('inQty').value;
+      const outQty = document.getElementById('outQty').value;
+
+      if (!id) {
+        alert("QRコードが読み取られていません");
+        return;
+      }
+
+      fetch(`${GAS_URL}?id=${encodeURIComponent(id)}&inQty=${inQty}&outQty=${outQty}`, {
+        method: "GET",
+        mode: "cors"
+      })
+      .then(res => res.text())
+      .then(text => {
+        if (text.includes("OK")) {
+          alert("登録しました");
+          scanning = true; // 次の読み取り再開
+        } else {
+          alert("エラー: " + text);
+        }
+      })
+      .catch(err => alert("通信エラー: " + err));
     });
   </script>
 </body>
