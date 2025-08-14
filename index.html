@@ -1,73 +1,51 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <title>QR入出庫登録</title>
-  <style>
-    body { font-family: sans-serif; text-align: center; }
-    video { width: 100%; max-width: 400px; }
-    form { margin-top: 10px; }
-    label { display: block; margin: 5px 0; }
-  </style>
+<meta charset="UTF-8">
+<title>QR入出庫記録</title>
+<script src="https://unpkg.com/html5-qrcode"></script>
 </head>
 <body>
-  <h1>QR入出庫登録</h1>
-  <video id="preview" autoplay playsinline></video>
-  <form id="stockForm">
-    <label>ID: <input type="text" id="id" readonly></label>
-    <label>入庫数: <input type="number" id="inQty" value="0"></label>
-    <label>出庫数: <input type="number" id="outQty" value="0"></label>
-    <button type="submit">送信</button>
-  </form>
+<h2>QR入出庫記録</h2>
+<div id="reader" style="width:300px;"></div>
+<p>ID: <span id="scanned-id">未読</span></p>
+<label>入庫数: <input type="number" id="inQty"></label><br>
+<label>出庫数: <input type="number" id="outQty"></label><br>
+<button id="sendBtn">送信</button>
+<p id="result"></p>
 
-  <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
-  <script>
-    const video = document.getElementById('preview');
-    const form = document.getElementById('stockForm');
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbyTVsJRcNgNMm6RgGQhh6HPaH4IOLSCLJkhEQHSpr8cJm2HzoleCc5jhlYqySm8sWtZ/exec"; // 自分のGAS URL
+<script>
+const GAS_URL = "https://script.google.com/macros/s/AKfycbw8MLPsyb872cf4zHVtcEJLI1CxvHaUyCXM4XiBQp1LnOIwGS84tQ0kPH4bZgfilkRJ/exec";
 
-    // Androidカメラ起動
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-      .then(stream => { video.srcObject = stream; })
-      .catch(err => alert("カメラが使えません: " + err));
+// QRコード読み取り
+function onScanSuccess(decodedText) {
+    document.getElementById("scanned-id").innerText = decodedText;
+}
 
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
+new Html5QrcodeScanner("reader", { fps: 10, qrbox: 200 })
+    .render(onScanSuccess);
 
-    video.addEventListener('play', () => {
-      const loop = () => {
-        if (video.readyState === video.HAVE_ENOUGH_DATA) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          context.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
-          const code = jsQR(imageData.data, canvas.width, canvas.height);
-          if (code) {
-            document.getElementById('id').value = code.data;
-          }
-        }
-        requestAnimationFrame(loop);
-      };
-      loop();
-    });
+document.getElementById("sendBtn").addEventListener("click", () => {
+    const id = document.getElementById("scanned-id").innerText;
+    const inQty = document.getElementById("inQty").value;
+    const outQty = document.getElementById("outQty").value;
 
-    form.addEventListener('submit', e => {
-      e.preventDefault();
-      const id = document.getElementById('id').value;
-      const inQty = document.getElementById('inQty').value;
-      const outQty = document.getElementById('outQty').value;
+    if (!id || id === "未読") {
+        alert("先にQRコードを読み取ってください");
+        return;
+    }
 
-      fetch(`${GAS_URL}?id=${encodeURIComponent(id)}&inQty=${inQty}&outQty=${outQty}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.status === "ok") {
-            alert("登録しました");
-          } else {
-            alert("エラー: " + data.message);
-          }
-        })
-        .catch(err => alert("通信エラー: " + err));
-    });
-  </script>
+    const url = `${GAS_URL}?id=${encodeURIComponent(id)}&in=${encodeURIComponent(inQty)}&out=${encodeURIComponent(outQty)}`;
+
+    fetch(url)
+      .then(res => res.text()) // JSONではなくtextで受け取る
+      .then(txt => {
+          document.getElementById("result").innerText = txt;
+      })
+      .catch(err => {
+          document.getElementById("result").innerText = "通信エラー: " + err;
+      });
+});
+</script>
 </body>
 </html>
