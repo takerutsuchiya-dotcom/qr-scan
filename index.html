@@ -1,59 +1,98 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
-<meta charset="UTF-8">
-<title>入出庫送信フォーム</title>
+  <meta charset="UTF-8">
+  <title>QR入出庫管理</title>
 </head>
 <body>
-<h2>入出庫送信</h2>
+  <h2>QR入出庫管理（Android対応＋氏名保存）</h2>
 
-<form id="sendForm">
-  <label>ID: <input type="text" id="id" required></label><br>
-  <label>日付: <input type="date" id="date" required></label><br>
-  <label>入庫数: <input type="number" id="inQty"></label><br>
-  <label>出庫数: <input type="number" id="outQty"></label><br>
+  <video id="preview" style="width: 300px; border: 1px solid #ccc;"></video><br>
+
+  <label>入庫数: <input type="number" id="inQty" value="0"></label><br>
+  <label>出庫数: <input type="number" id="outQty" value="0"></label><br>
   <label>氏名: <input type="text" id="name" required></label><br>
-  <button type="submit">送信</button>
-</form>
+  <button id="sendBtn">送信</button>
 
-<script>
-const form = document.getElementById("sendForm");
+  <script src="https://cdn.jsdelivr.net/npm/jsqr/dist/jsQR.js"></script>
+  <script>
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbyI8nUXA_z1pLrspGSCP4APjnIGbIQ7DhJbsyJ67SvedItGIAZaSTpQT3V5w65Z4GvJ/exec";
+    const video = document.getElementById('preview');
+    let currentID = "";
 
-// ページ読み込み時に前回保存した名前を復元
-document.addEventListener("DOMContentLoaded", () => {
-  const savedName = localStorage.getItem("username");
-  if (savedName) {
-    document.getElementById("name").value = savedName;
-  }
-  // 今日の日付を自動セット
-  const today = new Date().toISOString().split("T")[0];
-  document.getElementById("date").value = today;
-});
+    // 日付
+    const today = new Date().toISOString().slice(0, 10);
 
-// 送信イベント
-form.addEventListener("submit", async (e) => {
-  e.preventDefault();
+    // ページ読み込み時に氏名を復元
+    document.addEventListener("DOMContentLoaded", () => {
+      const savedName = localStorage.getItem("username");
+      if (savedName) {
+        document.getElementById("name").value = savedName;
+      }
+    });
 
-  const id = document.getElementById("id").value;
-  const date = document.getElementById("date").value;
-  const inQty = document.getElementById("inQty").value;
-  const outQty = document.getElementById("outQty").value;
-  const name = document.getElementById("name").value;
+    // カメラ起動
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+      .then(stream => {
+        video.srcObject = stream;
+        video.play();
+      })
+      .catch(err => alert("カメラを利用できません: " + err));
 
-  // 名前をローカル保存（次回自動入力用）
-  localStorage.setItem("username", name);
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
 
-  const url = "【GASのWebアプリURL】"
-    + "?mode=submit&id=" + encodeURIComponent(id)
-    + "&date=" + encodeURIComponent(date)
-    + "&inQty=" + encodeURIComponent(inQty)
-    + "&outQty=" + encodeURIComponent(outQty)
-    + "&name=" + encodeURIComponent(name);
+    // QR読み取りループ
+    video.addEventListener('play', () => {
+      const loop = () => {
+        if (video.readyState === video.HAVE_ENOUGH_DATA) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          context.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsQR(imageData.data, canvas.width, canvas.height);
+          if (code) {
+            currentID = code.data.trim();
+          }
+        }
+        requestAnimationFrame(loop);
+      };
+      loop();
+    });
 
-  const res = await fetch(url);
-  const result = await res.json();
-  alert(result.result === "success" ? "送信しました" : "送信失敗");
-});
-</script>
+    // 送信ボタン
+    document.getElementById('sendBtn').addEventListener('click', () => {
+      if (!currentID) return alert("QRを読み取ってください");
+
+      const name = document.getElementById('name').value.trim();
+      if (!name) return alert("氏名を入力してください");
+
+      // 氏名を保存
+      localStorage.setItem("username", name);
+
+      const params = new URLSearchParams({
+        mode: 'submit',
+        id: currentID,
+        date: today,
+        inQty: document.getElementById('inQty').value,
+        outQty: document.getElementById('outQty').value,
+        name: name
+      });
+
+      fetch(`${GAS_URL}?${params.toString()}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.result === "success") {
+            alert("スプレッドシートに反映しました！");
+            document.getElementById('inQty').value = 0;
+            document.getElementById('outQty').value = 0;
+            currentID = "";
+          } else {
+            alert("送信に失敗: " + data.message);
+          }
+        })
+        .catch(err => alert("送信エラー: " + err));
+    });
+  </script>
 </body>
 </html>
