@@ -1,0 +1,43 @@
+function doGet(e) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("入出庫");
+  const params = e.parameter;
+
+  if (params.mode === "submit") {
+    try {
+      const id = params.id;
+      const date = params.date;
+      const inQty = Number(params.inQty) || 0;
+      const outQty = Number(params.outQty) || 0;
+      const name = params.name || ""; // 氏名
+
+      const lastRow = sheet.getRange("A:A").getValues().filter(String).length;
+      const writeRow = lastRow < 2 ? 2 : lastRow + 1;
+
+      sheet.getRange(writeRow, 1).setValue(id);    // A列
+      sheet.getRange(writeRow, 3).setValue(date);  // C列
+      sheet.getRange(writeRow, 4).setValue(inQty); // D列
+      sheet.getRange(writeRow, 5).setValue(outQty);// E列
+      sheet.getRange(writeRow, 6).setValue(name);  // F列（氏名）
+
+      // B列の関数コピー
+      const formulaR1C1 = sheet.getRange("B2").getFormulaR1C1();
+      if (formulaR1C1) {
+        sheet.getRange(writeRow, 2).setFormulaR1C1(formulaR1C1);
+      }
+
+      return ContentService.createTextOutput(
+        JSON.stringify({ result: "success" })
+      ).setMimeType(ContentService.MimeType.JSON);
+
+    } catch (err) {
+      return ContentService.createTextOutput(
+        JSON.stringify({ result: "error", message: err.message })
+      ).setMimeType(ContentService.MimeType.JSON);
+    }
+  }
+
+  return ContentService.createTextOutput(
+    JSON.stringify({ result: "error", message: "無効なmode" })
+  ).setMimeType(ContentService.MimeType.JSON);
+}
